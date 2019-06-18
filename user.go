@@ -114,19 +114,30 @@ func (u *User) resolveMessage(message Message) {
 			break // dev
 		}
 		winner, ok := game.CheckWinner()
-		if !ok {
+		if ok {
+			message = Message{
+				GameWinner,
+				map[string]string{
+					"winner": string(winner),
+				},
+			}
+			for _, user := range game.users {
+				user.currentGameUUID = ""
+				user.writeChan <- message
+				break // dev
+			}
 			return
 		}
-		message = Message{
-			GameWinner,
-			map[string]string{
-				"winner": string(winner),
-			},
-		}
-		for _, user := range game.users {
-			user.currentGameUUID = ""
-			user.writeChan <- message
-			break // dev
+		if game.CheckDraw() {
+			message = Message{
+				GameDraw,
+				map[string]string{},
+			}
+			for _, user := range game.users {
+				user.currentGameUUID = ""
+				user.writeChan <- message
+				break // dev
+			}
 		}
 		break
 	}
