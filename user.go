@@ -26,6 +26,7 @@ func (u *User) readLoop() {
 		}
 		u.resolveMessage(message)
 	}
+	u.close()
 	err := u.ws.Close()
 	if err != nil {
 		log.Printf("error: %v", err)
@@ -38,6 +39,7 @@ func (u *User) writeLoop() {
 		log.Printf("message sended: %v", message)
 		err := u.ws.WriteJSON(message)
 		if err != nil {
+			u.close()
 			log.Printf("error: %v", err)
 			break
 		}
@@ -47,6 +49,12 @@ func (u *User) writeLoop() {
 func (u *User) close() {
 	u.repository.RemoveUserInSearch(u)
 	u.repository.RemoveUser(u)
+	if u.currentGameUUID != "" {
+		game := u.repository.GameByUUID(u.currentGameUUID)
+		if game != nil {
+			game.GameOver()
+		}
+	}
 }
 
 func (u *User) resolveMessage(message Message) {
@@ -72,12 +80,7 @@ func (u *User) resolveMessage(message Message) {
 		break
 
 	case GameOver:
-		if u.currentGameUUID != "" {
-			game := u.repository.GameByUUID(u.currentGameUUID)
-			if game != nil {
-				game.GameOver()
-			}
-		}
+		u.close()
 		break
 
 	case GameMove:
