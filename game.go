@@ -52,7 +52,6 @@ func (g *Game) Start() {
 	for _, user := range g.users {
 		user.writeChan <- messageGameSearchOff
 		user.writeChan <- messageGameStart
-		break // dev
 	}
 	log.Println("Game started", g.uuid)
 }
@@ -85,4 +84,19 @@ func (g *Game) CheckWinner() (GameUnit, bool) {
 		}
 	}
 	return EMPTY, false
+}
+
+func (g *Game) GameOver() {
+	if g.isOver == true {
+		return
+	}
+	g.isOver = true
+	message := Message{
+		GameOver,
+		map[string]string{},
+	}
+	for _, user := range g.users {
+		user.currentGameUUID = ""
+		user.writeChan <- message
+	}
 }

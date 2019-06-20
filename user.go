@@ -12,6 +12,7 @@ type User struct {
 	currentGameUUID string
 	ws              *websocket.Conn
 	writeChan       chan Message
+	repository      IRepository
 }
 
 func (u *User) readLoop() {
@@ -43,11 +44,16 @@ func (u *User) writeLoop() {
 	}
 }
 
+func (u *User) close() {
+	u.repository.RemoveUserInSearch(u)
+	u.repository.RemoveUser(u)
+}
+
 func (u *User) resolveMessage(message Message) {
 	switch message.Type {
 	case Login:
 		u.username = message.Payload["username"]
-		Repository.AddUser(u)
+		u.repository.AddUser(u)
 		u.writeChan <- Message{
 			LoginSuccess,
 			map[string]string{
@@ -58,24 +64,18 @@ func (u *User) resolveMessage(message Message) {
 		break
 
 	case GameSearchOn:
-		Repository.AddUserInSearch(u)
+		u.repository.AddUserInSearch(u)
+		break
+
+	case GameSearchOff:
+		u.repository.RemoveUserInSearch(u)
 		break
 
 	case GameOver:
-		Repository.RemoveUserInSearch(u)
 		if u.currentGameUUID != "" {
-			game := Repository.GameByUUID(u.currentGameUUID)
+			game := u.repository.GameByUUID(u.currentGameUUID)
 			if game != nil {
-				game.isOver = true
-				message := Message{
-					GameOver,
-					map[string]string{},
-				}
-				for _, u := range game.users {
-					if u.uuid != u.uuid {
-						u.writeChan <- message
-					}
-				}
+				game.GameOver()
 			}
 		}
 		break
@@ -85,7 +85,7 @@ func (u *User) resolveMessage(message Message) {
 		if err != nil {
 			return
 		}
-		game := Repository.GameByUUID(u.currentGameUUID)
+		game := u.repository.GameByUUID(u.currentGameUUID)
 		if game == nil {
 			return
 		}
@@ -97,11 +97,11 @@ func (u *User) resolveMessage(message Message) {
 			return
 		}
 		if (game.currentMoveUnit == CROSS) && (game.crossUser == u) {
-			log.Println("CROSS MOVER")
+			log.Printf("CROSS MOVED: %v\n", position)
 			game.field[position] = CROSS
 			game.currentMoveUnit = ZERO
 		} else if (game.currentMoveUnit == ZERO) && (game.zeroUser == u) {
-			log.Println("ZERO MOVER")
+			log.Printf("ZERO MOVED: %v\n", position)
 			game.field[position] = ZERO
 			game.currentMoveUnit = CROSS
 		}
@@ -111,7 +111,6 @@ func (u *User) resolveMessage(message Message) {
 		}
 		for _, user := range game.users {
 			user.writeChan <- message
-			break // dev
 		}
 		winner, ok := game.CheckWinner()
 		if ok {
@@ -124,7 +123,6 @@ func (u *User) resolveMessage(message Message) {
 			for _, user := range game.users {
 				user.currentGameUUID = ""
 				user.writeChan <- message
-				break // dev
 			}
 			return
 		}
@@ -136,7 +134,6 @@ func (u *User) resolveMessage(message Message) {
 			for _, user := range game.users {
 				user.currentGameUUID = ""
 				user.writeChan <- message
-				break // dev
 			}
 		}
 		break

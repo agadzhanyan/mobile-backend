@@ -13,6 +13,7 @@ func MockUser() *User {
 		"",
 		nil,
 		make(chan Message),
+		nil,
 	}
 }
 
@@ -180,12 +181,29 @@ func TestGameRepository_GameSessions(t *testing.T) {
 		usersInSearchMutex *sync.RWMutex
 		gameSessionsMutex  *sync.RWMutex
 	}
+	mockCrossUser, mockZeroUser := MockUser(), MockUser()
+	mockGame := MockGame(mockCrossUser, mockZeroUser)
 	tests := []struct {
 		name   string
 		fields fields
 		want   map[string]*Game
 	}{
-		// TODO: Add test cases.
+		{
+			"no games found",
+			fields{
+				map[string]*User{},
+				map[string]*User{},
+				map[string]*Game{
+					mockGame.uuid: mockGame,
+				},
+				&sync.RWMutex{},
+				&sync.RWMutex{},
+				&sync.RWMutex{},
+			},
+			map[string]*Game{
+				mockGame.uuid: mockGame,
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -260,6 +278,73 @@ func TestGameRepository_UsersInSearch(t *testing.T) {
 			}
 			if got := gr.UsersInSearch(); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("GameRepository.UsersInSearch() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestGameRepository_UsersInSearchInsertionOrder(t *testing.T) {
+	type fields struct {
+		users              map[string]*User
+		usersInSearch      map[string]*User
+		usersInSerachKeys  []string
+		gameSessions       map[string]*Game
+		usersMutex         *sync.RWMutex
+		usersInSearchMutex *sync.RWMutex
+		gameSessionsMutex  *sync.RWMutex
+	}
+	mockUser := MockUser()
+	tests := []struct {
+		name   string
+		fields fields
+		want   []*User
+	}{
+		{
+			"user exists",
+			fields{
+				map[string]*User{},
+				map[string]*User{
+					mockUser.uuid: mockUser,
+				},
+				[]string{
+					mockUser.uuid,
+				},
+				map[string]*Game{},
+				&sync.RWMutex{},
+				&sync.RWMutex{},
+				&sync.RWMutex{},
+			},
+			[]*User{
+				mockUser,
+			},
+		},
+		{
+			"user doesn't exists",
+			fields{
+				map[string]*User{},
+				map[string]*User{},
+				[]string{},
+				map[string]*Game{},
+				&sync.RWMutex{},
+				&sync.RWMutex{},
+				&sync.RWMutex{},
+			},
+			[]*User{},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gr := &GameRepository{
+				users:              tt.fields.users,
+				usersInSearch:      tt.fields.usersInSearch,
+				usersInSearchKeys:  tt.fields.usersInSerachKeys,
+				gameSessions:       tt.fields.gameSessions,
+				usersMutex:         tt.fields.usersMutex,
+				usersInSearchMutex: tt.fields.usersInSearchMutex,
+				gameSessionsMutex:  tt.fields.gameSessionsMutex,
+			}
+			if got := gr.UsersInSearchInsertionOrder(); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("GameRepository.UsersInSearchInsertionOrder() = %T, want %T", got, tt.want)
 			}
 		})
 	}

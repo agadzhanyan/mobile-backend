@@ -1,12 +1,11 @@
 package main
 
 import (
+	"context"
+	"github.com/gorilla/websocket"
 	"log"
-	"math/rand"
 	"net/http"
 	"time"
-
-	"github.com/gorilla/websocket"
 )
 
 type IRepository interface {
@@ -14,6 +13,7 @@ type IRepository interface {
 	GameByUUID(uuid string) *Game
 	GameSessions() map[string]*Game
 	UsersInSearch() map[string]*User
+	UsersInSearchInsertionOrder() []*User
 	Users() map[string]*User
 	AddUser(user *User)
 	RemoveUser(user *User)
@@ -36,9 +36,17 @@ func init() {
 }
 
 func main() {
-	go gameSessionCreator()
-	go gameCleaner()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	tickerGSC := time.Tick(15 * time.Second)
+	tickerCleaner := time.Tick(15 * time.Second)
+
+	go gameSessionsCreator(Repository, ctx, tickerGSC)
+	go gameCleaner(Repository, ctx, tickerCleaner)
+
 	http.HandleFunc("/", handleWebsocketConnections)
+
 	log.Println("http server started on :17666")
 	err := http.ListenAndServe(":17666", nil)
 	if err != nil {
@@ -57,80 +65,9 @@ func handleWebsocketConnections(w http.ResponseWriter, r *http.Request) {
 		"<empty>",
 		"",
 		ws,
-		make(chan Message),
+		make(chan Message, 2),
+		Repository,
 	}
 	go user.readLoop()
 	go user.writeLoop()
-}
-
-func gameCleaner() {
-	ticker := time.Tick(30 * time.Second)
-	for {
-		<-ticker
-		for _, game := range Repository.GameSessions() {
-			if game.isOver {
-				Repository.RemoveGame(game)
-			}
-		}
-	}
-}
-
-func gameSessionCreator() {
-	ticker := time.Tick(200 * time.Millisecond)
-	var playerFirst *User
-	var playerSecond *User
-	for {
-		<-ticker
-		playerFirst = nil
-		playerSecond = nil
-		for _, user := range Repository.UsersInSearch() {
-			if playerFirst == nil {
-				playerFirst = user
-
-				// added for testing
-				// to remove
-				playerSecond = user
-			} else if playerSecond == nil {
-				playerSecond = user
-			}
-			{
-				// for dev purpose
-				// } else {
-				if rand.Intn(1) == 0 {
-					playerFirst, playerSecond = playerSecond, playerFirst
-				}
-				log.Println("Creating the game...")
-				game := &Game{
-					generateUUID(),
-					[]*User{playerFirst, playerSecond},
-					playerFirst,
-					playerSecond,
-					CROSS,
-					false,
-					GameField{
-						1: EMPTY,
-						2: EMPTY,
-						3: EMPTY,
-						4: EMPTY,
-						5: EMPTY,
-						6: EMPTY,
-						7: EMPTY,
-						8: EMPTY,
-						9: EMPTY,
-					},
-				}
-				go game.Start()
-				playerFirst.currentGameUUID = game.uuid
-				playerSecond.currentGameUUID = game.uuid
-				Repository.AddGame(game)
-
-				Repository.RemoveUserInSearch(playerFirst)
-				Repository.RemoveUserInSearch(playerSecond)
-
-				playerFirst = nil
-				playerSecond = nil
-			}
-
-		}
-	}
 }

@@ -6,6 +6,7 @@ func InmemoryRepository() IRepository {
 	return &GameRepository{
 		make(map[string]*User),
 		make(map[string]*User),
+		[]string{},
 		make(map[string]*Game),
 		&sync.RWMutex{},
 		&sync.RWMutex{},
@@ -16,6 +17,7 @@ func InmemoryRepository() IRepository {
 type GameRepository struct {
 	users                                             map[string]*User
 	usersInSearch                                     map[string]*User
+	usersInSearchKeys                                 []string
 	gameSessions                                      map[string]*Game
 	usersMutex, usersInSearchMutex, gameSessionsMutex *sync.RWMutex
 }
@@ -48,6 +50,14 @@ func (gr *GameRepository) UsersInSearch() map[string]*User {
 	return gr.usersInSearch
 }
 
+func (gr *GameRepository) UsersInSearchInsertionOrder() []*User {
+	slice := []*User{}
+	for _, key := range gr.usersInSearchKeys {
+		slice = append(slice, gr.usersInSearch[key])
+	}
+	return slice
+}
+
 func (gr *GameRepository) Users() map[string]*User {
 	return gr.users
 }
@@ -66,6 +76,14 @@ func (gr *GameRepository) AddUser(user *User) {
 func (gr *GameRepository) RemoveUser(user *User) {
 	gr.usersMutex.RLock()
 	_, ok := gr.users[user.uuid]
+	var newSlice []string
+	for _, v := range gr.usersInSearchKeys {
+		if v == user.uuid {
+			continue
+		}
+		newSlice = append(newSlice, v)
+	}
+
 	gr.usersMutex.RUnlock()
 	if ok {
 		gr.usersMutex.Lock()
@@ -77,6 +95,7 @@ func (gr *GameRepository) RemoveUser(user *User) {
 func (gr *GameRepository) AddUserInSearch(user *User) {
 	gr.usersInSearchMutex.RLock()
 	_, ok := gr.usersInSearch[user.uuid]
+	gr.usersInSearchKeys = append(gr.usersInSearchKeys, user.uuid)
 	gr.usersInSearchMutex.RUnlock()
 	if !ok {
 		gr.usersInSearchMutex.Lock()
