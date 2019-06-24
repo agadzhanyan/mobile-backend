@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-func MockUserWithUnlimitedBuffer(repository IRepository) *User {
+func MockUserWithRepository(repository IRepository) *User {
 	return &User{
 		generateUUID(),
 		generateUUID(),
@@ -18,12 +18,69 @@ func MockUserWithUnlimitedBuffer(repository IRepository) *User {
 	}
 }
 
+func TestGame_Caht(t *testing.T) {
+	repository := InmemoryRepository()
+
+	mockUserFirst := MockUserWithRepository(repository)
+	mockUserSecond := MockUserWithRepository(repository)
+
+	mockUserFirst.resolveMessage(Message{Login, map[string]string{"username": "1"}})
+	expectMsg := Message{
+		LoginSuccess,
+		map[string]string{
+			"uuid":     mockUserFirst.uuid,
+			"username": "1",
+		},
+	}
+	gotMsg := <-mockUserFirst.writeChan
+	if !reflect.DeepEqual(expectMsg, gotMsg) {
+		t.Errorf("invalid write message\n expect: %v\n got %v", expectMsg, gotMsg)
+	}
+
+	mockUserSecond.resolveMessage(Message{Login, map[string]string{"username": "2"}})
+	expectMsg = Message{
+		LoginSuccess,
+		map[string]string{
+			"uuid":     mockUserSecond.uuid,
+			"username": "2",
+		},
+	}
+	gotMsg = <-mockUserSecond.writeChan
+	if !reflect.DeepEqual(expectMsg, gotMsg) {
+		t.Errorf("invalid write message\n expect: %v\n got %v", expectMsg, gotMsg)
+	}
+
+	mockUserFirst.resolveMessage(Message{MessageSend, map[string]string{"text": "Hi! It is gopher!"}})
+	expectMsg = Message{
+		MessageNew,
+		map[string]string{
+			"text": "Hi! It is gopher!",
+		},
+	}
+	gotMsg = <-mockUserSecond.writeChan
+	if !reflect.DeepEqual(expectMsg, gotMsg) {
+		t.Errorf("invalid write message\n expect: %v\n got %v", expectMsg, gotMsg)
+	}
+
+	mockUserSecond.resolveMessage(Message{MessageSend, map[string]string{"text": "Hey! It is Elephant!"}})
+	expectMsg = Message{
+		MessageNew,
+		map[string]string{
+			"text": "Hey! It is Elephant!",
+		},
+	}
+	gotMsg = <-mockUserFirst.writeChan
+	if !reflect.DeepEqual(expectMsg, gotMsg) {
+		t.Errorf("invalid write message\n expect: %v\n got %v", expectMsg, gotMsg)
+	}
+}
+
 // when someone leave the game
 func TestGame_GameOver(t *testing.T) {
 	repository := InmemoryRepository()
 
-	mockUserFirst := MockUserWithUnlimitedBuffer(repository)
-	mockUserSecond := MockUserWithUnlimitedBuffer(repository)
+	mockUserFirst := MockUserWithRepository(repository)
+	mockUserSecond := MockUserWithRepository(repository)
 
 	mockUserFirst.resolveMessage(Message{Login, map[string]string{"username": "1"}})
 	expectMsg := Message{
@@ -104,8 +161,8 @@ func TestGame_GameOver(t *testing.T) {
 func TestGame_WithWinner(t *testing.T) {
 	repository := InmemoryRepository()
 
-	mockUserFirst := MockUserWithUnlimitedBuffer(repository)
-	mockUserSecond := MockUserWithUnlimitedBuffer(repository)
+	mockUserFirst := MockUserWithRepository(repository)
+	mockUserSecond := MockUserWithRepository(repository)
 
 	mockUserFirst.resolveMessage(Message{Login, map[string]string{"username": "1"}})
 	expectMsg := Message{
@@ -315,8 +372,8 @@ func TestGame_WithWinner(t *testing.T) {
 func TestGame_Draw(t *testing.T) {
 	repository := InmemoryRepository()
 
-	mockUserFirst := MockUserWithUnlimitedBuffer(repository)
-	mockUserSecond := MockUserWithUnlimitedBuffer(repository)
+	mockUserFirst := MockUserWithRepository(repository)
+	mockUserSecond := MockUserWithRepository(repository)
 
 	mockUserFirst.resolveMessage(Message{Login, map[string]string{"username": "1"}})
 	expectMsg := Message{

@@ -2,6 +2,7 @@ package main
 
 import (
 	"github.com/gorilla/websocket"
+	"html"
 	"log"
 	"strconv"
 )
@@ -138,6 +139,25 @@ func (u *User) resolveMessage(message Message) {
 				user.currentGameUUID = ""
 				user.writeChan <- message
 			}
+		}
+		break
+
+	case MessageSend:
+		text, ok := message.Payload["text"]
+		if !ok {
+			return
+		}
+		message := Message{
+			MessageNew,
+			map[string]string{
+				"text": html.EscapeString(text),
+			},
+		}
+		for _, user := range u.repository.Users() {
+			if user.uuid == u.uuid {
+				continue
+			}
+			user.writeChan <- message
 		}
 		break
 	}

@@ -13,6 +13,9 @@ const (
 	GameMoved  = "GameMoved"
 	GameWinner = "GameWinner"
 	GameDraw   = "GameDraw"
+
+	MessageSend = "MessageSend"
+	MessageNew  = "MessageNew"
 )
 
 type Message struct {
