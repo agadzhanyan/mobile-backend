@@ -18,7 +18,7 @@ func MockUserWithRepository(repository IRepository) *User {
 	}
 }
 
-func TestGame_Caht(t *testing.T) {
+func Test_Chat(t *testing.T) {
 	repository := InmemoryRepository()
 
 	mockUserFirst := MockUserWithRepository(repository)
