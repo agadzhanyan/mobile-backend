@@ -150,7 +150,8 @@ func (u *User) resolveMessage(message Message) {
 		message := Message{
 			MessageNew,
 			map[string]string{
-				"text": html.EscapeString(text),
+				"text":     html.EscapeString(text),
+				"username": html.EscapeString(u.username),
 			},
 		}
 		for _, user := range u.repository.Users() {
