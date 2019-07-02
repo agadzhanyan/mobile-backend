@@ -11,15 +11,16 @@ func InmemoryRepository() IRepository {
 		&sync.RWMutex{},
 		&sync.RWMutex{},
 		&sync.RWMutex{},
+		&sync.RWMutex{},
 	}
 }
 
 type GameRepository struct {
-	users                                             map[string]*User
-	usersInSearch                                     map[string]*User
-	usersInSearchKeys                                 []string
-	gameSessions                                      map[string]*Game
-	usersMutex, usersInSearchMutex, gameSessionsMutex *sync.RWMutex
+	users                                                                     map[string]*User
+	usersInSearch                                                             map[string]*User
+	usersInSearchKeys                                                         []string
+	gameSessions                                                              map[string]*Game
+	usersMutex, usersInSearchMutex, usersInSearchKeysMutex, gameSessionsMutex *sync.RWMutex
 }
 
 func (gr *GameRepository) UserByUUID(uuid string) *User {
@@ -51,7 +52,7 @@ func (gr *GameRepository) UsersInSearch() map[string]*User {
 }
 
 func (gr *GameRepository) UsersInSearchInsertionOrder() []*User {
-	slice := []*User{}
+	var slice []*User
 	for _, key := range gr.usersInSearchKeys {
 		slice = append(slice, gr.usersInSearch[key])
 	}
@@ -74,22 +75,26 @@ func (gr *GameRepository) AddUser(user *User) {
 }
 
 func (gr *GameRepository) RemoveUser(user *User) {
-	gr.usersMutex.RLock()
-	_, ok := gr.users[user.uuid]
 	var newSlice []string
+	gr.usersInSearchKeysMutex.RUnlock()
 	for _, v := range gr.usersInSearchKeys {
 		if v == user.uuid {
 			continue
 		}
 		newSlice = append(newSlice, v)
 	}
+	gr.usersInSearchKeysMutex.RUnlock()
 
-	gr.usersMutex.RUnlock()
+	gr.usersInSearchKeysMutex.Lock()
+	gr.usersInSearchKeys = newSlice
+	gr.usersInSearchKeysMutex.Unlock()
+
+	gr.usersMutex.Lock()
+	_, ok := gr.users[user.uuid]
 	if ok {
-		gr.usersMutex.Lock()
 		delete(gr.users, user.uuid)
-		gr.usersMutex.Unlock()
 	}
+	gr.usersMutex.Unlock()
 }
 
 func (gr *GameRepository) AddUserInSearch(user *User) {

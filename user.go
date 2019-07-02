@@ -70,19 +70,15 @@ func (u *User) resolveMessage(message Message) {
 				"username": u.username,
 			},
 		}
-		break
 
 	case GameSearchOn:
 		u.repository.AddUserInSearch(u)
-		break
 
 	case GameSearchOff:
 		u.repository.RemoveUserInSearch(u)
-		break
 
 	case GameOver:
 		u.close()
-		break
 
 	case GameMove:
 		position, err := strconv.Atoi(message.Payload["position"])
@@ -140,7 +136,6 @@ func (u *User) resolveMessage(message Message) {
 				user.writeChan <- message
 			}
 		}
-		break
 
 	case MessageSend:
 		text, ok := message.Payload["text"]
@@ -160,6 +155,5 @@ func (u *User) resolveMessage(message Message) {
 			}
 			user.writeChan <- message
 		}
-		break
 	}
 }

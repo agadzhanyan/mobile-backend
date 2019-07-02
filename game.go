@@ -87,7 +87,7 @@ func (g *Game) CheckWinner() (GameUnit, bool) {
 }
 
 func (g *Game) GameOver() {
-	if g.isOver == true {
+	if g.isOver {
 		return
 	}
 	g.isOver = true
